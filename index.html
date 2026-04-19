@@ -841,10 +841,22 @@ async function syncRulesToSheets(desc,cat){
 }
 
 async function syncMovsToSheets(movs,mes,ano){
+  // Periodo siempre como texto legible
   const period=MESES[mes-1]+" "+ano;
   const rows=movs.map(m=>{
     const fuente=m.cardType==="USD"?"Tarjeta USD":m.cardType==="CLP"?"Tarjeta CLP":m.cardType==="KHIPU"?"Khipu":"Cuenta corriente";
-    return[period,m.fecha,m.descripcion||"",m.monto,fuente,m.real||""];
+    // Forzar fecha como string YYYY-MM-DD limpio — nunca mandar número serial ni objeto Date
+    let fechaStr=m.fecha||"";
+    if(typeof fechaStr==="number"){
+      // Convertir serial Excel a fecha
+      const d=new Date(Math.round((fechaStr-25569)*86400*1000));
+      fechaStr=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+    } else if(fechaStr instanceof Date){
+      fechaStr=fechaStr.getFullYear()+"-"+String(fechaStr.getMonth()+1).padStart(2,"0")+"-"+String(fechaStr.getDate()).padStart(2,"0");
+    }
+    // Asegurar que es string puro de 10 caracteres YYYY-MM-DD
+    fechaStr=String(fechaStr).slice(0,10);
+    return[period, fechaStr, m.descripcion||"", m.monto, fuente, m.real||""];
   });
   gsAppendRows(SHEET_MOVS,rows);
 }
