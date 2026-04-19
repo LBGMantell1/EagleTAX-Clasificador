@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EagleTAX — Clasificador</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--bg:#f5f5f3;--surface:#fff;--border:rgba(0,0,0,.09);--text:#1a1a1a;--muted:#6b7280;
+  --green:#16a34a;--blue:#2563eb;--red:#dc2626;--amber:#d97706;
+  --green-bg:#f0fdf4;--blue-bg:#eff6ff;--red-bg:#fff1f2;--amber-bg:#fffbeb}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);font-size:13px;min-height:100vh}
+.wrap{max-width:1200px;margin:0 auto;padding:28px 20px}
+h1{font-size:21px;font-weight:600;margin-bottom:3px}
+.sub{color:var(--muted);font-size:12px;margin-bottom:22px}
+.card{background:var(--surface);border:0.5px solid var(--border);border-radius:12px;padding:20px;margin-bottom:14px}
+.slabel{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.up-row{display:flex;gap:12px;flex-wrap:wrap}
+.up-box{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  border:1.5px dashed #ccc;border-radius:10px;padding:18px 14px;cursor:pointer;
+  flex:1;min-width:180px;background:var(--bg);transition:all .18s;text-align:center}
+.up-box:hover{border-color:var(--blue);background:var(--blue-bg)}
+.up-box.ok{border-color:var(--green);background:var(--green-bg)}
+.up-box .ico{font-size:22px}
+.up-box .fname{font-size:10px;color:var(--muted);max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+input[type=file]{display:none}
+.cfg{display:flex;gap:14px;flex-wrap:wrap;align-items:center;background:var(--bg);
+  border-radius:8px;padding:10px 14px;border:0.5px solid var(--border);margin-bottom:14px}
+.cfg label{font-size:12px;color:var(--muted);white-space:nowrap}
+.cfg select,.cfg input{padding:5px 8px;border-radius:6px;border:0.5px solid #d1d5db;font-size:12px;background:var(--surface);color:var(--text)}
+.btn{padding:8px 18px;border-radius:8px;border:none;font-size:12px;font-weight:500;cursor:pointer;transition:opacity .15s}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-green{background:var(--green);color:#fff}
+.btn-blue{background:var(--blue);color:#fff}
+.btn-amber{background:#f59e0b;color:#fff}
+.btn-ghost{background:var(--surface);color:var(--muted);border:0.5px solid #d1d5db}
+.cuad{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:10px}
+.cuad-box{background:var(--bg);border:0.5px solid var(--border);border-radius:9px;padding:11px 13px}
+.cuad-box .val{font-size:17px;font-weight:600;margin-bottom:2px}
+.cuad-box .lbl{font-size:10px;color:var(--muted)}
+.cuad-result{border-radius:9px;padding:11px 15px;display:flex;align-items:center;gap:10px;font-weight:500;font-size:13px}
+.cuad-result.ok{background:var(--green-bg);border:0.5px solid #86efac;color:var(--green)}
+.cuad-result.warn{background:var(--red-bg);border:0.5px solid #fca5a5;color:var(--red)}
+.cuad-result.partial{background:var(--amber-bg);border:0.5px solid #fcd34d;color:var(--amber)}
+.cuad-result.neutral{background:var(--bg);border:0.5px solid var(--border);color:var(--muted)}
+.split-bar{display:flex;gap:14px;flex-wrap:wrap;align-items:center;
+  background:var(--blue-bg);border:0.5px solid #93c5fd;border-radius:8px;padding:8px 14px;margin-bottom:14px;font-size:12px}
+.sval{font-weight:600;color:var(--blue)}
+.stats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.chip{background:var(--surface);border:0.5px solid var(--border);border-radius:8px;padding:5px 12px;display:flex;gap:5px;align-items:center}
+.chip .num{font-size:17px;font-weight:600}.chip .lbl{font-size:11px;color:var(--muted)}
+.filters{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px}
+.fb{padding:4px 10px;border-radius:5px;font-size:11px;font-weight:500;border:0.5px solid #d1d5db;cursor:pointer;background:var(--surface);color:var(--muted)}
+.fb.on{background:var(--text);color:var(--surface);border-color:var(--text)}
+.tbl-wrap{overflow-x:auto;border-radius:9px;border:0.5px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{padding:7px 10px;text-align:left;font-weight:500;color:var(--muted);font-size:11px;background:var(--bg);border-bottom:0.5px solid var(--border);white-space:nowrap}
+td{padding:6px 10px;border-bottom:0.5px solid rgba(0,0,0,.04);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafaf8!important}
+tr.ksplit td{background:#f0f9ff}
+tr.row-pending td{background:#fff8f0}
+tr.row-usd td{background:#eef2ff}
+tr.row-clp td{background:#f5f3ff}
+select.cat{width:100%;font-size:11px;padding:3px 5px;border-radius:5px;border:0.5px solid #d1d5db;background:var(--surface);color:var(--text)}
+select.cat.empty{border:1.5px solid #fca5a5;background:var(--red-bg)}
+.badge{font-size:10px;padding:2px 7px;border-radius:4px;font-weight:500;white-space:nowrap}
+.prop-cell{font-size:11px;color:var(--muted);padding:3px 6px;border-radius:4px;background:var(--bg);border:0.5px solid var(--border);white-space:nowrap;display:inline-block}
+.prop-cell.ia{color:var(--blue);background:var(--blue-bg);border-color:#93c5fd}
+.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.note{font-size:11px;color:var(--muted);margin-top:10px;line-height:1.6}
+.empty-row{padding:36px;text-align:center;color:var(--muted)}
+.apirow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.apirow input{flex:1;min-width:240px;font-family:monospace;font-size:11px}
+.saved{font-size:11px;color:var(--green);font-weight:500}
+.divider{height:1px;background:var(--border);margin:14px 0}
+.tag{font-size:9px;padding:1px 6px;border-radius:3px;font-weight:600;display:inline-block}
+.tag-usd{background:#dbeafe;color:#1d4ed8}
+.tag-clp{background:#ede9fe;color:#6d28d9}
+.tag-cc{background:#f3f4f6;color:#6b7280}
+.tag-khipu{background:#e0f2fe;color:#0284c7}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div style="font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:3px">EagleTAX</div>
+  <h1>Clasificador de Movimientos</h1>
+  <p class="sub">Cuenta Corriente + Reporte Khipu + Tarjeta USD + Tarjeta CLP → distribución proporcional automática → confirma y exporta</p>
+
+  <div id="step1">
+    <div class="card">
+      <div class="slabel">1. Archivos</div>
+      <div class="up-row" id="up-row"></div>
+      <div class="divider"></div>
+      <div class="slabel">2. Período</div>
+      <div class="cfg" style="margin-bottom:0">
+        <label>Mes</label><select id="sel-mes"></select><select id="sel-año"></select>
+      </div>
+      <div class="divider"></div>
+      <div class="slabel">3. API Key Anthropic <span style="font-size:10px;font-weight:400;text-transform:none;color:var(--muted)">(para propuestas IA · Haiku · &lt;$0.01/mes)</span></div>
+      <div class="apirow">
+        <input type="password" id="api-key" placeholder="sk-ant-api03-...">
+        <button class="btn btn-ghost" onclick="saveKey()">Guardar</button>
+        <span class="saved" id="key-saved" style="display:none">✓ Guardada</span>
+      </div>
+      <p style="font-size:11px;color:var(--muted);margin-top:5px">Se guarda solo en tu navegador.</p>
+      <div class="divider"></div>
+      <button class="btn btn-green" id="btn-go" style="font-size:13px;padding:9px 24px" disabled>Clasificar →</button>
+    </div>
+  </div>
+
+  <div id="step2" style="display:none">
+    <div id="cuad-panel"></div>
+    <div id="split-panel"></div>
+    <div class="stats" id="stats-row"></div>
+    <div class="actions" id="actions-row"></div>
+    <div class="filters" id="filter-row"></div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>Fecha</th><th>Descripción</th>
+          <th style="text-align:right">Monto</th>
+          <th>Fuente</th><th>Propuesta</th>
+          <th>Categoría real</th><th>Estado</th>
+        </tr></thead>
+        <tbody id="tbl-body"></tbody>
+      </table>
+    </div>
+    <p class="note" id="footer-note"></p>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// CONSTANTES
+// ═══════════════════════════════════════════════
+const CATS=["Ads","Agencia","Aporte de capital","Bebidas y comida","CRM","Costo Nubox",
+  "Costo Transbank","Direccion empresa","Fijo Contador","Google Business",
+  "Ingreso por venta nueva","Ingreso recurrencia","Oficina","Otros","Otros administracion",
+  "Papelería","Pasarela de pagos","Plataforma contable","Software SaaS","Sueldo Owner","Zoho"];
+const MESES=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio",
+             "Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+
+const PSRC={
+  rule:{lb:"✓ Regla",co:"#16a34a"},
+  learn:{lb:"🧠 Aprendido",co:"#7c3aed"},
+  ia:{lb:"★ IA",co:"#2563eb"},
+  khipu:{lb:"⚡ Khipu",co:"#0284c7"}
+};
+
+// ── Reglas tarjeta USD ──────────────────────────
+const USD_RULES=[
+  {pat:/APOLLO\.IO/,                       cat:"CRM",              fixed:true},
+  {pat:/ZOHO.CRM/,                         cat:"CRM",              fixed:true},
+  {pat:/HIGHLEVEL/,                        cat:"CRM",              fixed:true},
+  {pat:/ELEVENLABS/,                       cat:"Software SaaS",    fixed:true},
+  {pat:/VAPI API/,                         cat:"Software SaaS",    fixed:false},
+  {pat:/HEROKU/,                           cat:"Software SaaS",    fixed:false},
+  {pat:/MONGODBCLOUD/,                     cat:"Software SaaS",    fixed:false},
+  {pat:/TWILIO/,                           cat:"Zoho",             fixed:false},
+  {pat:/GOOGLE.*WORKSPACE|GOOGLE.*GSUITE/, cat:"Google Business",  fixed:false},
+  {pat:/GOOGLE.*CLOUD/,                    cat:"Google Business",  fixed:false},
+  {pat:/CLAUDE\.AI|CLAUDE AI/,             cat:"Software SaaS",    fixed:true},
+  {pat:/HOSTINGER/,                        cat:"Software SaaS",    fixed:false},
+  {pat:/MONTO CANCELADO/,                  cat:null,               fixed:false},
+];
+
+// ── Reglas tarjeta CLP ─────────────────────────
+const CLP_RULES=[
+  {pat:/COMISION COMPRA INTERNACIONAL/, cat:"Otros",               fixed:true},
+  {pat:/COBRO ADM MENSUAL/,             cat:"Otros",               fixed:true},
+  {pat:/NUBOX/,                         cat:"Costo Nubox",         fixed:true},
+  {pat:/OFICINA VIRTUAL/,               cat:"Oficina",             fixed:false},
+  {pat:/MUNICIPALIDAD/,                 cat:"Otros administracion",fixed:false},
+  {pat:/BLACKSTAR/,                     cat:"Agencia",             fixed:false},
+  {pat:/PAGO PAC EN PESOS/,             cat:"Otros",               fixed:false},
+  {pat:/INTERESES ROTATIVOS/,           cat:"Otros",               fixed:false},
+  {pat:/IMPUESTO DECRETO/,              cat:"Otros",               fixed:false},
+  {pat:/MONTO CANCELADO/,               cat:null,                  fixed:false},
+];
+
+// ═══════════════════════════════════════════════
+// APRENDIZAJE
+// ═══════════════════════════════════════════════
+function loadRules(){try{return JSON.parse(localStorage.getItem("et_rules")||"{}");}catch{return {};}}
+function saveRule(desc,cat){
+  if(!desc||!cat)return;
+  const r=loadRules();r[desc.trim()]=cat;
+  localStorage.setItem("et_rules",JSON.stringify(r));
+  syncRulesToSheets(desc,cat);
+}
+function learnedCat(desc){return loadRules()[desc.trim()]||null;}
+
+// ═══════════════════════════════════════════════
+// REGLAS DE CLASIFICACIÓN CUENTA CORRIENTE
+// ═══════════════════════════════════════════════
+function applyRules(desc){
+  const L=learnedCat(desc);
+  if(L)return{cat:L,src:"learn"};
+  const d=(desc||"").toUpperCase().replace(/\s+/g," ").trim();
+  if(/PAGO DEUDA TARJETA.*(USD|US\$)/.test(d))return{cat:"__CARD_USD__"};
+  if(/PAGO DEUDA TARJETA/.test(d))return{cat:"__CARD_CLP__"};
+  if(/PAC TARJETA/.test(d))return{cat:"__CARD_CLP__"};
+  if(/AUDITORIA.*LLANO/.test(d))return{cat:"Ingreso recurrencia",src:"rule"};
+  if(/ARLY GLOBAL/.test(d))return{cat:"Ingreso recurrencia",src:"rule"};
+  if(/BELLEZA MUNDO/.test(d))return{cat:"Ingreso recurrencia",src:"rule"};
+  if(/CHASS SPA/.test(d))return{cat:"Ingreso recurrencia",src:"rule"};
+  if(/INVERSIONES COYA SPA/.test(d))return{cat:"Ingreso recurrencia",src:"rule"};
+  if(/SOCIEDAD MEDICINA MARIO/.test(d))return{cat:"Ingreso recurrencia",src:"rule"};
+  if(/JAVIERA.*TORO|TORO.*AHUMADA/.test(d))return{cat:"Ingreso recurrencia",src:"rule"};
+  if(/VELIZ FUENTES|VALENZUELA VERONICA|GONZALEZ YELISMAR|DANIELA.*MARTINEZ|CONSTANZA.*FER/.test(d))return{cat:"Ingreso recurrencia",src:"rule"};
+  if(/NALA ESTAMPADOS/.test(d))return{cat:"Ingreso recurrencia",src:"rule"};
+  if(/GARCIA.*MANTELL|LIONEL.*GARCIA/.test(d))return{cat:"Ingreso recurrencia",src:"rule"};
+  if(/CRISTIAN.*GAETE|GAETE MORENO/.test(d))return{cat:"Ingreso recurrencia",src:"rule"};
+  if(/YMC EXPORT/.test(d))return{cat:"Ingreso recurrencia",src:"rule"};
+  if(/STEPHANIE TIGHE/.test(d))return{cat:"Ingreso recurrencia",src:"rule"};
+  if(/PAGO EN L[IÍ]NEA SII/.test(d))return{cat:"Ingreso recurrencia",src:"rule"};
+  if(/PAGO EN L[IÍ]NEA PREVIRED|PREVIRED/.test(d))return{cat:"Ingreso recurrencia",src:"rule"};
+  if(/TESORERIA/.test(d))return{cat:"Ingreso recurrencia",src:"rule"};
+  if(/SII \d{5,}SANTIAG/.test(d))return{cat:"Ingreso recurrencia",src:"rule"};
+  if(/TGR \d{5,}SANTIAG/.test(d))return{cat:"Ingreso recurrencia",src:"rule"};
+  if(/ABONO PNOL/.test(d))return{cat:"Ingreso recurrencia",src:"rule"};
+  if(/MARTIN.*LLANOS.*CLAVIJO/.test(d))return{cat:"Ingreso por venta nueva",src:"rule"};
+  if(/CLAUDIO.*GUTIERREZ|GUTIERREZ FELIU/.test(d))return{cat:"Ingreso por venta nueva",src:"rule"};
+  if(/EMPRENDE/.test(d))return{cat:"Ingreso por venta nueva",src:"rule"};
+  if(/OFICINA VIRTUAL/.test(d))return{cat:"Ingreso por venta nueva",src:"rule"};
+  if(/EUGENIO LLANOS/.test(d))return{cat:"Aporte de capital",src:"rule"};
+  if(/OLIVARES BASCUNAN/.test(d))return{cat:"Aporte de capital",src:"rule"};
+  if(/MONTT PACHECO/.test(d))return{cat:"Aporte de capital",src:"rule"};
+  if(/MART[IÍ]N LLANOS|MARTIN LLANOS/.test(d))return{cat:"Fijo Contador",src:"rule"};
+  if(/BLACKSTAR CONTENT/.test(d))return{cat:"Agencia",src:"rule"};
+  if(/YANNICK.*MATA|MATA.*YANNICK/.test(d))return{cat:"Agencia",src:"rule"};
+  if(/CHRISTIAN GARCIA JIMENEZ/.test(d))return{cat:"Oficina",src:"rule"};
+  if(/PASARELA DE PAGOS/.test(d))return{cat:"Pasarela de pagos",src:"rule"};
+  if(/FACEBK|FACEBOOK/.test(d))return{cat:"Ads",src:"rule"};
+  if(/GOOGLE.*ADS/.test(d))return{cat:"Ads",src:"rule"};
+  if(/CLAUDE\.AI|CLAUDE AI/.test(d))return{cat:"Software SaaS",src:"rule"};
+  if(/GOOGLE.*CLOUD/.test(d))return{cat:"Google Business",src:"rule"};
+  if(/HOSTINGER/.test(d))return{cat:"Software SaaS",src:"rule"};
+  if(/WONDERSHARE/.test(d))return{cat:"Software SaaS",src:"rule"};
+  if(/TWILIO/.test(d))return{cat:"Zoho",src:"rule"};
+  if(/FLOW.*LICENCIAS/.test(d))return{cat:"Software SaaS",src:"rule"};
+  if(/NUBOX/.test(d))return{cat:"Costo Nubox",src:"rule"};
+  if(/MUNICIPALIDAD/.test(d))return{cat:"Otros administracion",src:"rule"};
+  if(/ESTACIONAMIENTO/.test(d))return{cat:"Otros administracion",src:"rule"};
+  if(/COBRO ADM MENSUAL|COMISION COMPRA INTERNACIONAL/.test(d))return{cat:"Otros",src:"rule"};
+  if(/IMPUESTO.*SOBREGIRO/.test(d))return{cat:"Otros",src:"rule"};
+  if(/MONTO CANCELADO/.test(d))return{cat:"Otros",src:"rule"};
+  if(/PAC TARJETA|PAGO PAC/.test(d))return{cat:"Otros",src:"rule"};
+  return{cat:null,src:null};
+}
+
+// ═══════════════════════════════════════════════
+// FECHAS
+// ═══════════════════════════════════════════════
+function toDate(v){
+  if(!v)return null;
+  if(typeof v==="number")return new Date(Math.round((v-25569)*86400*1000));
+  if(v instanceof Date)return v;
+  if(typeof v==="string"){const p=v.slice(0,10).split("-");if(p.length===3)return new Date(p[0],p[1]-1,p[2]);}
+  return null;
+}
+function fmtDate(v){const d=toDate(v);if(!d)return"";return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function inMonth(v,m,a){const d=toDate(v);return d?d.getFullYear()===a&&d.getMonth()+1===m:false;}
+function inPrevMonth(v,m,a){const d=toDate(v);if(!d)return false;const pm=m===1?12:m-1,pa=m===1?a-1:a;return d.getFullYear()===pa&&d.getMonth()+1===pm;}
+
+// ═══════════════════════════════════════════════
+// PARSEO KHIPU
+// ═══════════════════════════════════════════════
+const REC_PAT=/\b(TOTAL|PREV|F29)\b/i;
+async function parseKhipu(file){
+  const buf=await file.arrayBuffer();
+  const wb=XLSX.read(buf,{type:"array"});
+  const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:true,defval:""});
+  let venta=0,rec=0;
+  for(let i=1;i<rows.length;i++){
+    const r=rows[i],m=parseFloat(r[1])||0,a=String(r[10]||"");
+    if(REC_PAT.test(a))rec+=m; else venta+=m;
+  }
+  const total=venta+rec;
+  return{pctV:total>0?venta/total:0,pctR:total>0?rec/total:1,total,venta,rec};
+}
+
+// ═══════════════════════════════════════════════
+// PARSEO TARJETA USD
+// ═══════════════════════════════════════════════
+async function parseCardUSD(file,totalCLP,fecha){
+  const buf=await file.arrayBuffer();
+  const wb=XLSX.read(buf,{type:"array",cellDates:false});
+  const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:true,defval:""});
+  let hi=null;
+  for(let i=0;i<rows.length;i++){if(String(rows[i][1]||"").includes("Fecha")){hi=i;break;}}
+  if(hi===null)return[];
+  const[fAnio,fMes]=fecha.split("-").map(Number);
+  const grp={};
+  for(let i=hi+1;i<rows.length;i++){
+    const r=rows[i];
+    if(!r[1]||!r[3])continue;
+    const rawDesc=String(r[3]).trim();
+    if(!rawDesc||rawDesc.startsWith("=")||rawDesc.startsWith("CR"))continue;
+    const amt=parseFloat(r[4]);
+    if(isNaN(amt)||amt===0||amt>0)continue;
+    const rd=toDate(r[1]);
+    if(!rd||rd.getFullYear()!==fAnio||rd.getMonth()+1!==fMes)continue;
+    const key=rawDesc.replace(/\s+(COMPRAS INT\.VI|PAGOS INT\.VISA|CR\.C\.INT\.VISA).*/i,"").trim();
+    if(!grp[key])grp[key]={desc:key,amtUSD:0};
+    grp[key].amtUSD+=Math.abs(amt);
+  }
+  const items=Object.values(grp);
+  const totalUSD=items.reduce((s,x)=>s+x.amtUSD,0);
+  if(totalUSD===0)return[];
+  let seq=0,assigned=0,result=[];
+  items.forEach((item,idx)=>{
+    const pct=item.amtUSD/totalUSD;
+    const montoItem=idx===items.length-1?totalCLP-assigned:Math.round(totalCLP*pct);
+    assigned+=montoItem;
+    const L=learnedCat(item.desc);
+    const rule=USD_RULES.find(r=>r.pat.test(item.desc.toUpperCase()));
+    const cat=L||(rule?rule.cat:null);
+    const src=L?"learn":(rule?"rule":null);
+    result.push({id:"u"+seq++,fecha,descripcion:item.desc,monto:-montoItem,
+      propuesta:cat,propSrc:src,real:cat&&src?cat:null,
+      cardType:"USD",amtUSD:item.amtUSD,isK:false});
+  });
+  return result;
+}
+
+// ═══════════════════════════════════════════════
+// PARSEO TARJETA CLP
+// ═══════════════════════════════════════════════
+async function parseCardCLP(file,totalCLP,fecha){
+  const buf=await file.arrayBuffer();
+  const wb=XLSX.read(buf,{type:"array",cellDates:false});
+  const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:true,defval:""});
+  let hi=null;
+  for(let i=0;i<rows.length;i++){if(String(rows[i][1]||"").includes("Fecha")){hi=i;break;}}
+  if(hi===null)return[];
+  const[clpAnio,clpMes]=fecha.split("-").map(Number);
+  const charges=[];
+  for(let i=hi+1;i<rows.length;i++){
+    const r=rows[i];
+    if(!r[1]||!r[3])continue;
+    const desc=String(r[3]).trim().replace(/\s+/g," ");
+    if(!desc||desc.startsWith("="))continue;
+    const amt=parseFloat(r[6]||r[4]);
+    if(isNaN(amt)||amt===0||amt>0)continue;
+    const rd=toDate(r[1]);
+    if(!rd||rd.getFullYear()!==clpAnio||rd.getMonth()+1!==clpMes)continue;
+    charges.push({desc,amtCLP:Math.abs(amt)});
+  }
+  if(!charges.length)return[];
+  const totalCard=charges.reduce((s,x)=>s+x.amtCLP,0);
+  let seq=0,assigned=0,result=[];
+  charges.forEach((item,idx)=>{
+    const pct=item.amtCLP/totalCard;
+    const montoItem=idx===charges.length-1?totalCLP-assigned:Math.round(totalCLP*pct);
+    assigned+=montoItem;
+    const L=learnedCat(item.desc);
+    const rule=CLP_RULES.find(r=>r.pat.test(item.desc.toUpperCase()));
+    const cat=L||(rule?rule.cat:null);
+    const src=L?"learn":(rule?"rule":null);
+    result.push({id:"c"+seq++,fecha,descripcion:item.desc,monto:-montoItem,
+      propuesta:cat,propSrc:src,real:cat&&src?cat:null,
+      cardType:"CLP",amtCLP:item.amtCLP,isK:false});
+  });
+  return result;
+}
+
+// ═══════════════════════════════════════════════
+// PARSEO CUENTA CORRIENTE
+// ═══════════════════════════════════════════════
+async function parseCuenta(file,mes,año,sp,fUSD,fCLP){
+  const buf=await file.arrayBuffer();
+  const wb=XLSX.read(buf,{type:"array",cellDates:false});
+  const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:true,defval:""});
+  const movs=[];let saldoIni=null,saldoFin=null,skipped=0,seq=0;
+  const headerRow=rows[1]||[];
+  const hasPreEERR=String(headerRow[6]||"").toUpperCase().includes("EERR");
+  let totalCardUSD=0,totalCardCLP=0,fechaUSD=null,fechaCLP=null;
+  let khipuTotal=0,khipuFecha=null;
+
+  for(let i=2;i<rows.length;i++){
+    const r=rows[i];const fc=r[1]||r[0];const saldo=parseFloat(r[5])||null;
+    if(!toDate(fc)||!saldo)continue;
+    if(inMonth(fc,mes,año)&&saldoFin===null)saldoFin=saldo;
+    if(inPrevMonth(fc,mes,año)&&saldoIni===null)saldoIni=saldo;
+    if(saldoFin!==null&&saldoIni!==null)break;
+  }
+
+  for(let i=2;i<rows.length;i++){
+    const r=rows[i];
+    const fc=r[1]||r[0];
+    if(!toDate(fc))continue;
+    if(!inMonth(fc,mes,año)){skipped++;continue;}
+    const desc=String(r[2]||"").trim();
+    const preEERR=hasPreEERR?String(r[6]||"").trim():"";
+    if(!desc&&!preEERR){skipped++;continue;}
+    const egreso=parseFloat(String(r[3]||"").replace(/[^0-9.]/g,""))||0;
+    const ingreso=parseFloat(String(r[4]||"").replace(/[^0-9.]/g,""))||0;
+    const monto=ingreso>0?ingreso:(egreso>0?-egreso:0);
+
+    // Pre-asignado por usuario en col G
+    if(preEERR){
+      const descFinal=desc||preEERR;
+      movs.push({id:"m"+seq++,fecha:fmtDate(fc),descripcion:descFinal,monto,
+        propuesta:preEERR,propSrc:"rule",real:preEERR,isK:false,cardType:null});
+      continue;
+    }
+
+    // Khipu → acumular
+    if(/KHIPU/.test(desc.toUpperCase())){
+      khipuTotal+=monto;
+      if(!khipuFecha||fmtDate(fc)>khipuFecha)khipuFecha=fmtDate(fc);
+      continue;
+    }
+
+    // Clasificación automática
+    const{cat,src}=applyRules(desc);
+    if(cat==="__CARD_USD__"){totalCardUSD+=Math.abs(monto);fechaUSD=fmtDate(fc);skipped++;continue;}
+    if(cat==="__CARD_CLP__"){totalCardCLP+=Math.abs(monto);fechaCLP=fmtDate(fc);skipped++;continue;}
+    if(cat==="SKIP"){skipped++;continue;}
+    movs.push({id:"m"+seq++,fecha:fmtDate(fc),descripcion:desc,monto,
+      propuesta:cat,propSrc:src||null,real:cat&&src?cat:null,
+      isK:false,cardType:null});
+  }
+
+  // Khipu consolidado → dos filas
+  if(khipuTotal!==0&&khipuFecha){
+    if(sp){
+      const mV=Math.round(khipuTotal*sp.pctV),mR=khipuTotal-mV;
+      if(mV)movs.push({id:"k"+seq++,fecha:khipuFecha,
+        descripcion:"Transferencia recibida de KHIPU SPA",monto:mV,
+        propuesta:"Ingreso por venta nueva",propSrc:"khipu",
+        real:"Ingreso por venta nueva",isK:true,cardType:"KHIPU",
+        hint:"Split total mes "+pct(sp.pctV)});
+      if(mR)movs.push({id:"k"+seq++,fecha:khipuFecha,
+        descripcion:"Transferencia recibida de KHIPU SPA",monto:mR,
+        propuesta:"Ingreso recurrencia",propSrc:"khipu",
+        real:"Ingreso recurrencia",isK:true,cardType:"KHIPU",
+        hint:"Split total mes "+pct(sp.pctR)});
+    }else{
+      movs.push({id:"k"+seq++,fecha:khipuFecha,
+        descripcion:"Transferencia recibida de KHIPU SPA",monto:khipuTotal,
+        propuesta:"Ingreso recurrencia",propSrc:"rule",
+        real:null,isK:false,cardType:null,
+        hint:"Sin reporte Khipu — verifica split manualmente"});
+    }
+  }
+
+  // Expandir tarjeta USD
+  if(totalCardUSD>0&&fUSD){
+    const f=fechaUSD||`${año}-${String(mes).padStart(2,"0")}-28`;
+    (await parseCardUSD(fUSD,totalCardUSD,f)).forEach(m=>movs.push(m));
+  }
+  // Expandir tarjeta CLP
+  if(totalCardCLP>0&&fCLP){
+    const f=fechaCLP||`${año}-${String(mes).padStart(2,"0")}-28`;
+    (await parseCardCLP(fCLP,totalCardCLP,f)).forEach(m=>movs.push(m));
+  }
+
+  movs.sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  return{movs,saldoIni,saldoFin,skipped,totalCardUSD,totalCardCLP};
+}
+
+function pct(v){return(v*100).toFixed(1)+"%";}
+function fmt(n){return"$"+Math.abs(n||0).toLocaleString("es-CL");}
+
+// ═══════════════════════════════════════════════
+// ESTADO
+// ═══════════════════════════════════════════════
+let S={
+  fCuenta:null,fKhipu:null,fCardUSD:null,fCardCLP:null,
+  movs:[],saldoIni:null,saldoFin:null,sp:null,skipped:0,
+  totalCardUSD:0,totalCardCLP:0,
+  filter:"all",aiLoading:false,
+  mes:new Date().getMonth()+1,año:new Date().getFullYear()
+};
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+(function(){
+  const sm=document.getElementById("sel-mes"),sa=document.getElementById("sel-año");
+  MESES.forEach((m,i)=>{const o=document.createElement("option");o.value=i+1;o.textContent=m;if(i+1===S.mes)o.selected=true;sm.appendChild(o);});
+  [2024,2025,2026,2027].forEach(y=>{const o=document.createElement("option");o.value=y;o.textContent=y;if(y===S.año)o.selected=true;sa.appendChild(o);});
+  sm.onchange=e=>S.mes=parseInt(e.target.value);
+  sa.onchange=e=>S.año=parseInt(e.target.value);
+  const row=document.getElementById("up-row");
+  [{label:"Cuenta Corriente",icon:"🏦",key:"cuenta"},
+   {label:"Reporte Khipu (opcional)",icon:"⚡",key:"khipu"},
+   {label:"Tarjeta USD (opcional)",icon:"💵",key:"cardUSD"},
+   {label:"Tarjeta CLP (opcional)",icon:"💳",key:"cardCLP"}]
+  .forEach(({label,icon,key})=>{
+    const box=document.createElement("label");box.className="up-box";box.id="box-"+key;
+    box.innerHTML=`<span class="ico">${icon}</span><span style="font-size:12px;font-weight:500">${label}</span><span class="fname" id="fn-${key}">Arrastra o haz clic</span>`;
+    const inp=document.createElement("input");inp.type="file";inp.accept=".xlsx,.xls";
+    inp.onchange=e=>setFile(key,e.target.files[0]);box.appendChild(inp);
+    box.addEventListener("dragover",e=>{e.preventDefault();box.style.borderColor="#2563eb";});
+    box.addEventListener("dragleave",()=>box.style.borderColor="");
+    box.addEventListener("drop",e=>{e.preventDefault();setFile(key,e.dataTransfer.files[0]);});
+    row.appendChild(box);
+  });
+  const k=localStorage.getItem("et_apikey");
+  if(k){document.getElementById("api-key").value=k;document.getElementById("key-saved").style.display="inline";}
+  document.getElementById("btn-go").onclick=doProcess;
+})();
+
+function setFile(key,file){
+  if(!file)return;
+  if(key==="cuenta")S.fCuenta=file;
+  else if(key==="khipu")S.fKhipu=file;
+  else if(key==="cardUSD")S.fCardUSD=file;
+  else S.fCardCLP=file;
+  document.getElementById("fn-"+key).textContent=file.name;
+  document.getElementById("box-"+key).classList.add("ok");
+  document.getElementById("box-"+key).querySelector(".ico").textContent="✅";
+  document.getElementById("btn-go").disabled=!S.fCuenta;
+}
+function saveKey(){const v=document.getElementById("api-key").value.trim();if(!v)return;localStorage.setItem("et_apikey",v);document.getElementById("key-saved").style.display="inline";}
+
+// ═══════════════════════════════════════════════
+// PROCESAR
+// ═══════════════════════════════════════════════
+async function doProcess(){
+  const btn=document.getElementById("btn-go");btn.textContent="Procesando…";btn.disabled=true;
+  try{
+    S.sp=S.fKhipu?await parseKhipu(S.fKhipu):null;
+    const r=await parseCuenta(S.fCuenta,S.mes,S.año,S.sp,S.fCardUSD,S.fCardCLP);
+    Object.assign(S,{movs:r.movs,saldoIni:r.saldoIni,saldoFin:r.saldoFin,
+      skipped:r.skipped,totalCardUSD:r.totalCardUSD,totalCardCLP:r.totalCardCLP,filter:"all"});
+    document.getElementById("step1").style.display="none";
+    document.getElementById("step2").style.display="block";
+    renderAll();
+  }catch(e){
+    console.error(e);alert("Error procesando el archivo.\n\n"+e.message);
+    btn.textContent="Clasificar →";btn.disabled=false;
+  }
+}
+
+// ═══════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════
+function renderAll(){renderCuad();renderSplit();renderStats();renderActions();renderFilters();renderTable();renderFooter();}
+
+function renderCuad(){
+  const el=document.getElementById("cuad-panel");
+  if(!S.saldoIni&&!S.saldoFin){el.innerHTML="";return;}
+  const pend=S.movs.filter(m=>!m.real).length;
+  const suma=S.movs.filter(m=>m.real).reduce((a,m)=>a+(m.monto||0),0);
+  const calc=(S.saldoIni||0)+suma;
+  const diff=calc-(S.saldoFin||0);
+  const allDone=pend===0;const ok=allDone&&Math.abs(diff)<2;
+  let cls,msg;
+  if(!allDone){cls="partial";msg=`Faltan <strong>${pend}</strong> movimiento${pend>1?"s":""} por categorizar — cuadratura parcial`;}
+  else if(ok){cls="ok";msg="Cuadra perfectamente. Listo para exportar.";}
+  else{cls="warn";msg=`Descuadre de <strong>${fmt(Math.abs(diff))}</strong> ${diff>0?"de más":"de menos"} — revisa si falta algún movimiento.`;}
+  let extra="";
+  if(S.totalCardUSD)extra+=`<div class="cuad-box"><div class="val" style="color:#1d4ed8">${fmt(S.totalCardUSD)}</div><div class="lbl">Pago tarjeta USD distribuido</div></div>`;
+  if(S.totalCardCLP)extra+=`<div class="cuad-box"><div class="val" style="color:#6d28d9">${fmt(S.totalCardCLP)}</div><div class="lbl">Pago tarjeta CLP distribuido</div></div>`;
+  el.innerHTML=`<div class="card" style="margin-bottom:12px">
+    <div class="slabel" style="margin-bottom:10px">Panel de cuadratura</div>
+    <div class="cuad">
+      <div class="cuad-box"><div class="val" style="color:var(--muted)">${S.saldoIni?fmt(S.saldoIni):"—"}</div><div class="lbl">Saldo inicial (fin mes anterior)</div></div>
+      <div class="cuad-box"><div class="val" style="color:${suma>=0?"var(--green)":"var(--red)"}">${suma>=0?"+":"−"}${fmt(suma)}</div><div class="lbl">Neto clasificado${allDone?"":" (parcial)"}</div></div>
+      ${extra}
+      <div class="cuad-box"><div class="val">${fmt(calc)}</div><div class="lbl">Saldo calculado</div></div>
+      <div class="cuad-box"><div class="val" style="color:var(--blue)">${S.saldoFin?fmt(S.saldoFin):"—"}</div><div class="lbl">Saldo real (objetivo)</div></div>
+    </div>
+    <div class="cuad-result ${cls}"><span style="font-size:18px">${ok?"✓":allDone?"✗":"◑"}</span>${msg}</div>
+  </div>`;
+}
+
+function renderSplit(){
+  const el=document.getElementById("split-panel");
+  if(!S.sp){el.innerHTML="";return;}
+  el.innerHTML=`<div class="split-bar">
+    <span style="color:var(--muted)">Split Khipu →</span>
+    <span>Venta nueva: <span class="sval">${fmt(S.sp.venta)}</span> (${pct(S.sp.pctV)})</span>
+    <span>Recurrencia: <span class="sval">${fmt(S.sp.rec)}</span> (${pct(S.sp.pctR)})</span>
+    <span style="color:var(--muted);font-size:11px">Total reporte: ${fmt(S.sp.total)}</span>
+  </div>`;
+}
+
+function getStats(){
+  const m=S.movs;
+  return{
+    total:m.length,
+    conRegla:m.filter(x=>x.propSrc==="rule"||x.propSrc==="learn").length,
+    conIA:m.filter(x=>x.propSrc==="ia").length,
+    khipu:m.filter(x=>x.propSrc==="khipu").length,
+    nUSD:m.filter(x=>x.cardType==="USD").length,
+    nCLP:m.filter(x=>x.cardType==="CLP").length,
+    sinProp:m.filter(x=>!x.propuesta).length,
+    sinReal:m.filter(x=>!x.real).length
+  };
+}
+
+function getFiltered(){
+  if(S.filter==="all")return S.movs;
+  if(S.filter==="pend")return S.movs.filter(x=>!x.real);
+  if(S.filter==="sinprop")return S.movs.filter(x=>!x.propuesta);
+  if(S.filter==="usd")return S.movs.filter(x=>x.cardType==="USD");
+  if(S.filter==="clp")return S.movs.filter(x=>x.cardType==="CLP");
+  if(S.filter==="ia")return S.movs.filter(x=>x.propSrc==="ia");
+  return S.movs;
+}
+
+function renderStats(){
+  const st=getStats(),el=document.getElementById("stats-row");el.innerHTML="";
+  [{l:"Total",v:st.total,c:"#6b7280"},{l:"✓ Regla",v:st.conRegla,c:"#16a34a"},
+   {l:"★ IA",v:st.conIA,c:"#2563eb"},{l:"⚡ Khipu",v:st.khipu,c:"#0284c7"},
+   {l:"💵 USD",v:st.nUSD,c:"#1d4ed8"},{l:"💳 CLP",v:st.nCLP,c:"#6d28d9"},
+   {l:"Sin propuesta",v:st.sinProp,c:"#f59e0b"},{l:"Sin confirmar",v:st.sinReal,c:"#dc2626"}]
+  .forEach(x=>{el.innerHTML+=`<div class="chip"><span class="num" style="color:${x.c}">${x.v}</span><span class="lbl">${x.l}</span></div>`;});
+}
+
+function renderActions(){
+  const el=document.getElementById("actions-row");el.innerHTML="";
+  const st=getStats();
+  const sinProp=S.movs.filter(m=>!m.propuesta&&!m.isK);
+  if(sinProp.length){
+    const b=document.createElement("button");b.className="btn btn-amber";
+    b.textContent=S.aiLoading?`Enriqueciendo…`:`★ Enriquecer ${sinProp.length} con IA`;
+    b.disabled=S.aiLoading;b.onclick=enrichWithAI;el.appendChild(b);
+  }
+  const cb=document.createElement("button");cb.className="btn btn-green";
+  cb.textContent="✓ Confirmar y exportar XLSX";cb.disabled=st.sinReal!==0;
+  if(st.sinReal)cb.title=`Faltan ${st.sinReal} categorías`;
+  cb.onclick=confirmAndExport;el.appendChild(cb);
+  const bk=document.createElement("button");bk.className="btn btn-ghost";bk.textContent="← Nuevo mes";
+  bk.onclick=()=>{document.getElementById("step1").style.display="block";document.getElementById("step2").style.display="none";document.getElementById("btn-go").textContent="Clasificar →";document.getElementById("btn-go").disabled=!S.fCuenta;};
+  el.appendChild(bk);
+  const rules=loadRules();const rk=Object.keys(rules);
+  if(rk.length){
+    const rb=document.createElement("button");rb.className="btn btn-ghost";rb.style.marginLeft="auto";
+    rb.textContent=`🧠 ${rk.length} reglas aprendidas`;
+    rb.onclick=()=>{const l=Object.entries(rules).map(([d,c])=>`• ${d} → ${c}`).join("\n");
+      if(confirm("Reglas guardadas:\n\n"+l+"\n\n¿Eliminar todas?")){localStorage.removeItem("et_rules");renderActions();}};
+    el.appendChild(rb);
+  }
+}
+
+function renderFilters(){
+  const st=getStats(),el=document.getElementById("filter-row");el.innerHTML="";
+  [{k:"all",l:"Todos",v:st.total},{k:"pend",l:"Sin confirmar",v:st.sinReal},
+   {k:"sinprop",l:"Sin propuesta",v:st.sinProp},{k:"usd",l:"💵 USD",v:st.nUSD},
+   {k:"clp",l:"💳 CLP",v:st.nCLP},{k:"ia",l:"★ IA",v:st.conIA}]
+  .forEach(f=>{
+    const b=document.createElement("button");b.className="fb"+(S.filter===f.k?" on":"");
+    b.textContent=`${f.l} ${f.v}`;b.onclick=()=>{S.filter=f.k;renderFilters();renderTable();};
+    el.appendChild(b);
+  });
+}
+
+function renderTable(){
+  const tbody=document.getElementById("tbl-body");tbody.innerHTML="";
+  const rows=getFiltered();
+  if(!rows.length){tbody.innerHTML=`<tr><td colspan="7" class="empty-row">Sin movimientos para este filtro</td></tr>`;return;}
+  rows.forEach((m,i)=>{
+    const ac=m.monto<0?"#dc2626":"#16a34a";
+    const amt=(m.monto<0?"−":"+")+"$"+Math.abs(m.monto||0).toLocaleString("es-CL");
+    const ps=m.propSrc?PSRC[m.propSrc]:null;
+    const propHtml=m.propuesta
+      ?`<span class="prop-cell${m.propSrc==="ia"?" ia":""}" title="Fuente: ${ps?ps.lb:"—"}">${m.propuesta}</span>`
+      :`<span class="prop-cell" style="color:#f59e0b;border-color:#fcd34d;background:#fffbeb">Pendiente IA</span>`;
+    let opts=`<option value="">— Sin categoría —</option>`;
+    CATS.forEach(c=>{opts+=`<option value="${c}"${m.real===c?" selected":""}>${c}</option>`;});
+    let fuenteHtml=`<span class="tag tag-cc">Cuenta</span>`;
+    if(m.cardType==="USD")fuenteHtml=`<span class="tag tag-usd">💵 USD${m.amtUSD?" "+m.amtUSD.toFixed(1):""}</span>`;
+    else if(m.cardType==="CLP")fuenteHtml=`<span class="tag tag-clp">💳 CLP</span>`;
+    else if(m.cardType==="KHIPU")fuenteHtml=`<span class="tag tag-khipu">⚡ Khipu</span>`;
+    const tr=document.createElement("tr");
+    if(m.cardType==="USD")tr.className="row-usd";
+    else if(m.cardType==="CLP")tr.className="row-clp";
+    else if(m.isK)tr.className="ksplit";
+    else if(!m.real)tr.className="row-pending";
+    else tr.style.background=i%2===0?"#fff":"#fafaf8";
+    tr.innerHTML=`
+      <td style="white-space:nowrap;color:var(--muted);font-size:11px">${m.fecha}</td>
+      <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(m.descripcion||"").replace(/"/g,"&quot;")}${m.hint?" — "+m.hint:""}">${m.descripcion}${m.isK?` <span style="font-size:10px;color:#0284c7">${m.hint||""}</span>`:""}</td>
+      <td style="text-align:right;font-weight:500;color:${ac};white-space:nowrap">${amt}</td>
+      <td>${fuenteHtml}</td><td>${propHtml}</td>
+      <td><select class="cat${m.real?"":" empty"}" data-id="${m.id}">${opts}</select></td>
+      <td><span class="badge" style="background:${m.real?"#f0fdf4":"#fff1f2"};border:0.5px solid ${m.real?"#86efac":"#fca5a5"};color:${m.real?"#16a34a":"#dc2626"}">${m.real?"✓ Confirmado":"? Pendiente"}</span></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderFooter(){
+  const st=getStats();
+  const preNote=S.movs.filter(m=>m.hint==="Pre-asignado").length;
+  document.getElementById("footer-note").innerHTML=
+    `<b>${MESES[S.mes-1]} ${S.año}</b> · ${S.skipped} filas omitidas/expandidas · `+
+    `${st.conRegla} por regla · ${st.conIA} por IA · ${st.khipu} Khipu · `+
+    `${st.nUSD} cargos USD · ${st.nCLP} cargos CLP`+
+    (preNote?` · <b>${preNote}</b> pre-asignadas`:"");
+}
+
+document.getElementById("step2").addEventListener("change",e=>{
+  if(e.target.tagName==="SELECT"&&e.target.dataset.id){
+    const id=e.target.dataset.id,val=e.target.value;
+    S.movs=S.movs.map(m=>m.id===id?{...m,real:val||null,editado:true}:m);
+    e.target.className="cat"+(val?"":" empty");
+    renderStats();renderFilters();renderActions();renderCuad();
+    const tr=e.target.closest("tr");
+    if(tr){
+      const badge=tr.querySelector(".badge");
+      if(badge){badge.style.background=val?"#f0fdf4":"#fff1f2";badge.style.borderColor=val?"#86efac":"#fca5a5";badge.style.color=val?"#16a34a":"#dc2626";badge.textContent=val?"✓ Confirmado":"? Pendiente";}
+      if(val)tr.style.background="";else tr.className="row-pending";
+    }
+  }
+});
+
+// ═══════════════════════════════════════════════
+// ENRIQUECER CON IA
+// ═══════════════════════════════════════════════
+async function enrichWithAI(){
+  const apiKey=localStorage.getItem("et_apikey")||document.getElementById("api-key").value.trim();
+  if(!apiKey){alert("Ingresa tu API Key de Anthropic en el paso 3.");return;}
+  const sinProp=S.movs.filter(m=>!m.propuesta&&!m.isK);
+  if(!sinProp.length)return;
+  S.aiLoading=true;renderActions();
+  try{
+    const descs=[...new Set(sinProp.map(m=>m.descripcion))];
+    const res=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","x-api-key":apiKey,
+        "anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify({model:"claude-haiku-4-5",max_tokens:1000,
+        messages:[{role:"user",content:
+          `Eres asistente contable chileno de EagleTAX, empresa SaaS de contabilidad.\n`+
+          `Clasifica estos movimientos bancarios.\n`+
+          `Responde SOLO con JSON array sin markdown: [{"d":"descripcion exacta","c":"categoria"}]\n`+
+          `Categorías válidas (respeta mayúsculas exactas): ${CATS.join(", ")}\n`+
+          `Usa "Otros" si no estás seguro.\n\nMovimientos:\n${descs.join("\n")}`}]})
+    });
+    if(!res.ok)throw new Error(`API ${res.status}`);
+    const data=await res.json();
+    const text=data.content.map(b=>b.text||"").join("").replace(/```json|```/g,"").trim();
+    const map={};JSON.parse(text).forEach(r=>{map[r.d]=r.c;});
+    S.movs=S.movs.map(m=>{
+      if(!m.propuesta&&!m.isK&&map[m.descripcion])return{...m,propuesta:map[m.descripcion],propSrc:"ia",real:null};
+      return m;
+    });
+  }catch(e){console.error(e);alert("Error al llamar a la API.\n\n"+e.message);}
+  S.aiLoading=false;renderAll();
+}
+
+// ═══════════════════════════════════════════════
+// CONFIRMAR Y EXPORTAR
+// ═══════════════════════════════════════════════
+function confirmAndExport(){
+  syncMovsToSheets(S.movs,S.mes,S.año);
+  S.movs.forEach(m=>{
+    if(!m.real||m.isK)return;
+    if(m.editado||m.propSrc==="ia"||m.propSrc==="learn")saveRule(m.descripcion,m.real);
+  });
+
+  const wb=XLSX.utils.book_new();
+  const hdrs=["Nacional / Internacional","Fecha","Descripcion","Fuente","Monto cuota","Valor USD","Monto final","Dia","Mes","Año","EERR"];
+  const wsData=[hdrs];
+  S.movs.forEach(m=>{
+    const d=toDate(m.fecha);
+    const dia=d?d.getDate():"";
+    const mes=d?d.getMonth()+1:"";
+    const anio=d?d.getFullYear():"";
+    const fuente=m.cardType==="USD"?"Tarjeta USD":m.cardType==="CLP"?"Tarjeta CLP":m.cardType==="KHIPU"?"Khipu":"Cuenta corriente";
+    wsData.push(["Nacional",d||m.fecha,m.descripcion||"",fuente,m.monto,"",m.monto,dia,mes,anio,m.real||""]);
+  });
+  const ws=XLSX.utils.aoa_to_sheet(wsData);
+  const dateFmt="DD/MM/YYYY";
+  for(let r=1;r<wsData.length;r++){const cell=ws[XLSX.utils.encode_cell({r,c:1})];if(cell)cell.z=dateFmt;}
+  ws["!cols"]=[{wch:22},{wch:12},{wch:55},{wch:18},{wch:14},{wch:10},{wch:14},{wch:6},{wch:6},{wch:6},{wch:22}];
+  XLSX.utils.book_append_sheet(wb,ws,"Movimientos Banco");
+  XLSX.writeFile(wb,`eagletax_${MESES[S.mes-1]}_${S.año}.xlsx`);
+}
+
+// ═══════════════════════════════════════════════
+// GOOGLE SHEETS INTEGRATION
+// ═══════════════════════════════════════════════
+const GS_CREDS={
+  client_email:"eagletax-clasificador@eagletax-clasificador.iam.gserviceaccount.com",
+  private_key:"-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDQifW0pxmEBiC+\nwfUuHY5gCB1csyu1UXbXqJsXdbtvOwOBCGZNTQNXnPvr8Js3vA5xM1vCyQFUeOU4\n6VorpfTWS75kHBeLjsDsHCYDpTzfPlG7cJRGqr3p5NXtPWlDclWx7w56zGbsj93f\negAK2OvXdi/PCjL9iVxJJkWu7TzrDj+PhhTIQnkSo7fuhcIjoNXO+6mAIefRrEf8\nMO8PY4dXeE6klOIeUUAFv4F+BXi/mjULX7w7cZx/ZB4zRczxMtp62DrfSAPguGql\nOsacGxL7BBNiO/YVVcpOlv+7uTMQ3JcN7MuvneN3UMC7iLZtV/iARmvX59JwU4Ie\nrKvRMQiZAgMBAAECggEAA/MAAN60zMYnKCduZI68ERGA8GbsO94lhco7Z3GqOJcI\n2NeaxM8ajqfBTnj+5bxriLVF1nsqO4FL8KkVUaCDnHps9NRieVHkUWmym+6etgx7\nafwzJG8DVpgn7sIBaeB2balSauB53El1MRdamUvElICqCHNFN++BVXW++dzcu5Xq\nQxL1eP4IWCPTkOkVSkhNLr9JUMFwRaH3M3NS0hw2FYf1NrFLPvybMsNu0pT/G6vL\nEvZdzbbzDFvinGsoAg3lp30epTnvwUer0plEL/CwGR7Qe4DA4fxGfatDm5HR55Iu\nt/rSRsS3Dy2xi99jMBlGNysB4VYfqP8PePBkhdT+oQKBgQD8Muzb+O1u6X5BCgIZ\nzzoXJ0NIm8FAgxKcSbRlWao9n5lH3eiu2yzsNDlR93UPJaA7uq7jC5NIbauivNQ7\nyEkbmhyHX9lHi2SFyeIMYCI2mFLrTmiA8k46Uy+yEVfRhfwCeqljH8i+73UJZ97w\ni1wTo0ebQ/4bMoBMUEXFFvXJzQKBgQDTrpQRK8AF0QMls2Fr9KPo+cN1R+rqVDws\nqmcTebGMGP3EXIv9TMxT8s8m57rr6oJ14cnyVbZK8+rXKnKruYxvhehpFCU9Y4Se\n2pJpZ2H1Fd0998s4ESS1Tg1tt4/gaFgQTUX34ySo4l5itZuS7R5j7I6SoHi0iQhU\nkCMgqj39/QKBgGWPvIL5Q+SecxGODjqGkUYxsY7T6ocoQZ5esB8AdOZMF1Yxrzp7\nWSPmBA9WL/XhmR10mGkmiDFquOvYTz+j8I0FCugZWU7Oe7TFEBsbu6twvDO2Z69F\n5OroBRUYltzxsALvkrcwXY9Gr0MSaV1FQddGsdd9Eh+xvqj8ypwMGv8hAoGAdK0G\nSgyeU9Zn8LDV4uY+Llz0okFYt35kiI4IMJDkDv97aG9GbgCVozPzgFM8EWr6K7Wf\nVSZvSxL0/1ITUJn+UT4y4zBKcnLXF6QMDXMBaFB72PsrFSVF4XU7K52A/UUmPR4K\nkd6uRzQ2qBvHu41dMeCimSlAPupFIC8uXYPYlZUCgYEAuwXaxVwbj2ry9s89s3cE\n4/JACcq3dGOkHeQ+l4jNy+iVqedm/APT0RdbJQc5+Tue3ofTrELYD2NrzqDEsQzP\njaCb/ekXQinkBqkolOH77CcDmjGPBimyLpXCn8RU5C/0vK8vmXXq7n7otKLQ4kZ4\nb49zmi1Nxos081/6h4zPI+M=\n-----END PRIVATE KEY-----\n",
+  token_uri:"https://oauth2.googleapis.com/token"
+};
+const SHEET_ID="1X-Nxr2UR9RLmcvbUi3X-EtGW7xO4rYD2CGfu6Cm3HS0";
+const SHEET_MOVS="Historial";
+const SHEET_RULES="Reglas";
+
+let gsToken=null,gsTokenExp=0;
+
+async function gsGetToken(){
+  if(gsToken&&Date.now()<gsTokenExp-60000)return gsToken;
+  const header=btoa(JSON.stringify({alg:"RS256",typ:"JWT"})).replace(/=/g,"").replace(/\+/g,"-").replace(/\//g,"_");
+  const now=Math.floor(Date.now()/1000);
+  const claim=btoa(JSON.stringify({
+    iss:GS_CREDS.client_email,scope:"https://www.googleapis.com/auth/spreadsheets",
+    aud:GS_CREDS.token_uri,exp:now+3600,iat:now
+  })).replace(/=/g,"").replace(/\+/g,"-").replace(/\//g,"_");
+  const unsigned=header+"."+claim;
+  const keyData=GS_CREDS.private_key.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----/g,"").replace(/\n/g,"").replace(/\s/g,"");
+  const binaryKey=Uint8Array.from(atob(keyData),c=>c.charCodeAt(0));
+  const cryptoKey=await crypto.subtle.importKey("pkcs8",binaryKey,{name:"RSASSA-PKCS1-v1_5",hash:"SHA-256"},false,["sign"]);
+  const sig=await crypto.subtle.sign("RSASSA-PKCS1-v1_5",cryptoKey,new TextEncoder().encode(unsigned));
+  const sigB64=btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/=/g,"").replace(/\+/g,"-").replace(/\//g,"_");
+  const jwt=unsigned+"."+sigB64;
+  const resp=await fetch(GS_CREDS.token_uri,{method:"POST",
+    headers:{"Content-Type":"application/x-www-form-urlencoded"},
+    body:"grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion="+jwt});
+  const data=await resp.json();
+  gsToken=data.access_token;gsTokenExp=Date.now()+(data.expires_in||3600)*1000;
+  return gsToken;
+}
+
+async function gsAppendRows(sheet,rows){
+  try{
+    const token=await gsGetToken();
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheet)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,{
+      method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},
+      body:JSON.stringify({values:rows})});
+  }catch(e){console.error("Sheets append error",e);}
+}
+
+async function gsOverwriteSheet(sheet,rows){
+  try{
+    const token=await gsGetToken();
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheet)}:clear`,{
+      method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"}});
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheet)}?valueInputOption=USER_ENTERED`,{
+      method:"PUT",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},
+      body:JSON.stringify({values:rows})});
+  }catch(e){console.error("Sheets write error",e);}
+}
+
+async function syncRulesToSheets(desc,cat){
+  const learned=loadRules();
+  const rows=[["Descripcion","Categoria"]];
+  Object.entries(learned).forEach(([d,c])=>rows.push([d,c]));
+  gsOverwriteSheet(SHEET_RULES,rows);
+}
+
+async function syncMovsToSheets(movs,mes,ano){
+  const period=MESES[mes-1]+" "+ano;
+  const rows=movs.map(m=>{
+    const fuente=m.cardType==="USD"?"Tarjeta USD":m.cardType==="CLP"?"Tarjeta CLP":m.cardType==="KHIPU"?"Khipu":"Cuenta corriente";
+    return[period,m.fecha,m.descripcion||"",m.monto,fuente,m.real||""];
+  });
+  gsAppendRows(SHEET_MOVS,rows);
+}
+
+async function initSheets(){
+  try{
+    const token=await gsGetToken();
+    const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Historial!A1:F1`,
+      {headers:{"Authorization":"Bearer "+token}});
+    const d=await r.json();
+    if(!d.values||!d.values[0]||d.values[0][0]!=="Periodo"){
+      await gsAppendRows("Historial",[["Periodo","Fecha","Descripcion","Monto","Fuente","EERR"]]);
+    }
+    const r2=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Reglas!A1:B1`,
+      {headers:{"Authorization":"Bearer "+token}});
+    const d2=await r2.json();
+    if(!d2.values||!d2.values[0]||d2.values[0][0]!=="Descripcion"){
+      await gsOverwriteSheet("Reglas",[["Descripcion","Categoria"]]);
+    }
+    console.log("EagleTAX Sheets ready");
+  }catch(e){console.error("initSheets",e);}
+}
+initSheets();
+</script>
+</body>
+</html>
